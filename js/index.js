@@ -1,21 +1,28 @@
 
 // create the canvas
 var canvas   = document.createElement('canvas');
+canvas.id = "cvs"
 var ctx      = canvas.getContext('2d');
 
 // dump in body
-document.body.style.margin  = '0';
-document.body.style.padding = '0';
+document.body.style.margin  = 'auto';
+document.body.style.padding = 'auto';
+
 document.body.appendChild(canvas);
 
 var resizeCanvas = function() {
-	canvas.width  = window.innerWidth;
-	canvas.height = window.innerHeight;
+	canvas.width  = 800;
+	canvas.height = 600;
+	canvas.cs
 };
 
 // resize on load and listen for window change
 window.onresize = resizeCanvas;
 resizeCanvas();
+
+// add background image for monitor aesthetic
+var background = new Image();
+background.src = "monitor.jpg";
 
 // make a vector class
 function Vector(x, y) {
@@ -51,6 +58,7 @@ var ship = new spaceObj(new Vector(canvas.width/2, canvas.height/2), new Vector(
 var asteroids = [];
 var lasers = [];
 var approachRate = 0;
+var level = 1
 
 APP = {};
 
@@ -64,11 +72,12 @@ APP.core = {
 		APP.core.setDelta();
 		APP.core.populate();
 		APP.core.update();
+		APP.core.collisionCheck();
 		APP.core.render();
-		APP.core.animationFrame = window.requestAnimationFrame(APP.core.frame);
+		window.requestAnimationFrame(APP.core.frame);
 	},
 	setApproach: function() {
-		approachRate = document.getElementById('rate').value/200;
+		approachRate = 0.05 + level*0.01;
 	},
 	setDelta: function() {
 		APP.core.now = Date.now();
@@ -169,11 +178,40 @@ APP.core = {
 				lasers.splice(i, 1) }
 		}
 	},
+	collisionCheck: function() {
+		// lasers hitting roids
+		for (var a=0; a < asteroids.length; a++) {
+			for (var l=0; l < lasers.length; l++) {
+				if (Math.abs(asteroids[a].location.x - lasers[l].location.x) < 18*asteroids[a].scale && Math.abs(asteroids[a].location.y - lasers[l].location.y) < 18*asteroids[a].scale) {
+					asteroids.splice(a, 1);
+					lasers.splice(l, 1)
+				}
+			}
+		};
+		// roids hitting other roids
+		for (var a=0; a < asteroids.length; a++) {
+			var subArray = asteroids.slice(a+1, a.length)
+			for (var b=0; b < subArray.length; b++) {
+				if ((Math.abs(asteroids[a].location.x - subArray[b].location.x)) < (8*asteroids[a].scale + 8*subArray[b].scale) && 
+					(Math.abs(asteroids[a].location.y - subArray[b].location.y)) < (8*asteroids[a].scale + 8*subArray[b].scale)) {
+					if (asteroids[a].scale < subArray[b].scale) { asteroids.splice(a,     1); }
+					if (asteroids[a].scale > subArray[b].scale) { asteroids.splice(a+1+b, 1); }
+				}
+			}
+		};
+		// roids hitting ships
+		for (var a=0; a < asteroids.length; a++) {
+			var subArray = asteroids.slice(a+1, a.length)
+			if ((Math.abs(asteroids[a].location.x - ship.location.x)) < (8*asteroids[a].scale + 8*ship.scale) && 
+				(Math.abs(asteroids[a].location.y - ship.location.y)) < (8*asteroids[a].scale + 8*ship.scale)) {
+				ship = new spaceObj(new Vector(canvas.width/2, canvas.height/2), new Vector(0, 0));
+				asteroids = []
+				lasers = []
+			}
+		}
+	},
 	render: function() {
-		ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
-		ctx.shadowBlur = 0;
-		ctx.rect(0, 0, canvas.width, canvas.height);
-		ctx.fill();
+		ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 		drawShip(ship);
 		for (var i=0; i < asteroids.length; i++) {
 			drawAsteroid(asteroids[i]);
@@ -191,16 +229,61 @@ function checkKey(e) {
      	ship.direction.x += 5*Math.sin((ship.angle) * (Math.PI/180));
     }
     else if (e.keyCode == '37') {
-        ship.angle -= 5
+        ship.angle -= 5;
+        if (ship.angle < 0) { ship.angle += 360}
+    }
+    else if (e.keyCode == '40') {
+    	// quadrant 1
+    	if (ship.angle >= 0 && ship.angle < 90) { 
+    		if (ship.direction.y < 0) { ship.direction.y += 5*Math.abs(Math.cos((ship.angle) * (Math.PI/180))) };
+    		if (ship.direction.y > 0) { ship.direction.y -= 5*Math.abs(Math.cos((ship.angle) * (Math.PI/180))) }; 
+    		if (ship.direction.x > 0) { ship.direction.x -= 5*Math.abs(Math.sin((ship.angle) * (Math.PI/180))) };
+    		if (ship.direction.x < 0) { ship.direction.x += 5*Math.abs(Math.sin((ship.angle) * (Math.PI/180))) }}
+    	// quadrant 2
+    	if (ship.angle >= 90 && ship.angle < 180) { 
+    		if (ship.direction.y > 0) { ship.direction.y -= 5*Math.abs(Math.cos((ship.angle) * (Math.PI/180))) };
+    		if (ship.direction.y < 0) { ship.direction.y += 5*Math.abs(Math.cos((ship.angle) * (Math.PI/180))) }; 
+    		if (ship.direction.x > 0) { ship.direction.x -= 5*Math.abs(Math.sin((ship.angle) * (Math.PI/180))) }
+    		if (ship.direction.x < 0) { ship.direction.x += 5*Math.abs(Math.sin((ship.angle) * (Math.PI/180))) }}
+    	// quadrant 3
+    	if (ship.angle >= 180 && ship.angle < 270) { 
+    		if (ship.direction.y > 0) { ship.direction.y -= 5*Math.abs(Math.cos((ship.angle) * (Math.PI/180))) }; 
+    		if (ship.direction.y < 0) { ship.direction.y += 5*Math.abs(Math.cos((ship.angle) * (Math.PI/180))) }; 
+    		if (ship.direction.x < 0) { ship.direction.x += 5*Math.abs(Math.sin((ship.angle) * (Math.PI/180))) };
+    		if (ship.direction.x > 0) { ship.direction.x -= 5*Math.abs(Math.sin((ship.angle) * (Math.PI/180))) }}
+    	// quadrant 4
+    	if (ship.angle >= 270 && ship.angle < 360) { 
+    		if (ship.direction.y < 0) { ship.direction.y += 5*Math.abs(Math.cos((ship.angle) * (Math.PI/180))) };
+    		if (ship.direction.y > 0) { ship.direction.y -= 5*Math.abs(Math.cos((ship.angle) * (Math.PI/180))) }; 
+    		if (ship.direction.x < 0) { ship.direction.x += 5*Math.abs(Math.sin((ship.angle) * (Math.PI/180))) };
+    		if (ship.direction.x > 0) { ship.direction.x -= 5*Math.abs(Math.sin((ship.angle) * (Math.PI/180))) }}
     }
     else if (e.keyCode == '39') {
-        ship.angle += 5
+        ship.angle += 5;
+        if (ship.angle > 360) { ship.angle -= 360}
     }
     else if (e.keyCode == '32') {
+    	document.getElementById("laser").play();
         var laser = new spaceObj(ship.location.clone(), ship.direction.clone());
         laser.speed = new Vector(5, 5);
         laser.angle = ship.angle;
-        lasers.push(laser)
+    	// quadrant 1
+    	if (ship.angle >= 0 && ship.angle < 90) { 
+    		laser.direction.y = -100*Math.abs(Math.cos((ship.angle) * (Math.PI/180))); 
+    		laser.direction.x =  100*Math.abs(Math.sin((ship.angle) * (Math.PI/180)))}
+    	// quadrant 2
+    	if (ship.angle >= 90 && ship.angle < 180) { 
+    		laser.direction.y =  100*Math.abs(Math.cos((ship.angle) * (Math.PI/180))); 
+    		laser.direction.x =  100*Math.abs(Math.sin((ship.angle) * (Math.PI/180)))}
+    	// quadrant 3
+    	if (ship.angle >= 180 && ship.angle < 270) { 
+    		laser.direction.y =  100*Math.abs(Math.cos((ship.angle) * (Math.PI/180))); 
+    		laser.direction.x = -100*Math.abs(Math.sin((ship.angle) * (Math.PI/180)))}
+    	// quadrant 4
+    	if (ship.angle >= 270 && ship.angle < 360) { 
+    		laser.direction.y = -100*Math.abs(Math.cos((ship.angle) * (Math.PI/180))); 
+    		laser.direction.x = -100*Math.abs(Math.sin((ship.angle) * (Math.PI/180)))}
+    	lasers.push(laser)
     }
 }
 
@@ -250,37 +333,80 @@ function drawShip(ship) {
 
 // make a tons of space rocks
 function drawAsteroid(roid) {
-
 	ctx.beginPath();
 	ctx.moveTo(roid.location.x, roid.location.y);
 
-	var backRight = roid.location.clone();
-	backRight.x += 20*roid.scale;
-	backRight.y += 17*roid.scale;
-	backRight.rotate(roid.location, roid.angle);
+	var pt = roid.location.clone();
+	pt.x += 1*roid.scale;
+	pt.y += -16*roid.scale;
+	pt.rotate(roid.location, roid.angle);
+	ctx.lineTo(pt.x,pt.y);
 
-	ctx.lineTo(backRight.x,backRight.y);
-    
-    var backMiddleL = roid.location.clone();
-	backMiddleL.x += 10*roid.scale;
-	backMiddleL.y += 40*roid.scale;
-	backMiddleL.rotate(roid.location, roid.angle);	
+	var pt = roid.location.clone();
+	pt.x += 6*roid.scale;
+	pt.y += -13*roid.scale;
+	pt.rotate(roid.location, roid.angle);
+	ctx.lineTo(pt.x,pt.y);
 
-    ctx.lineTo(backMiddleL.x,backMiddleL.y);
-    
-    var backMiddleR = roid.location.clone();
-    backMiddleR.x -= 10*roid.scale;
-	backMiddleR.y += 40*roid.scale;
-	backMiddleR.rotate(roid.location, roid.angle);	
+	var pt = roid.location.clone();
+	pt.x += 15*roid.scale;
+	pt.y += 0*roid.scale;
+	pt.rotate(roid.location, roid.angle);
+	ctx.lineTo(pt.x,pt.y);
 
-    ctx.lineTo(backMiddleR.x,backMiddleR.y);
-    
-	var backLeft = roid.location.clone();
-	backLeft.x -= 20*roid.scale;
-	backLeft.y += 17*roid.scale;
-	backLeft.rotate(roid.location, roid.angle);	
+	var pt = roid.location.clone();
+	pt.x += 12*roid.scale;
+	pt.y += 3*roid.scale;
+	pt.rotate(roid.location, roid.angle);
+	ctx.lineTo(pt.x,pt.y);
 
-    ctx.lineTo(backLeft.x,backLeft.y);
+	var pt = roid.location.clone();
+	pt.x += 12*roid.scale;
+	pt.y += 10*roid.scale;
+	pt.rotate(roid.location, roid.angle);
+	ctx.lineTo(pt.x,pt.y);
+
+	var pt = roid.location.clone();
+	pt.x += 0*roid.scale;
+	pt.y += 16*roid.scale;
+	pt.rotate(roid.location, roid.angle);
+	ctx.lineTo(pt.x,pt.y);
+
+	var pt = roid.location.clone();
+	pt.x += -10*roid.scale;
+	pt.y += 8*roid.scale;
+	pt.rotate(roid.location, roid.angle);
+	ctx.lineTo(pt.x,pt.y);
+
+	var pt = roid.location.clone();
+	pt.x += -2*roid.scale;
+	pt.y += 5*roid.scale;
+	pt.rotate(roid.location, roid.angle);
+	ctx.lineTo(pt.x,pt.y);
+
+	var pt = roid.location.clone();
+	pt.x += -11*roid.scale;
+	pt.y += 7*roid.scale;
+	pt.rotate(roid.location, roid.angle);
+	ctx.lineTo(pt.x,pt.y);
+
+	var pt = roid.location.clone();
+	pt.x += -13*roid.scale;
+	pt.y += -4*roid.scale;
+	pt.rotate(roid.location, roid.angle);
+	ctx.lineTo(pt.x,pt.y);
+
+	var pt = roid.location.clone();
+	pt.x += -8*roid.scale;
+	pt.y += -4*roid.scale;
+	pt.rotate(roid.location, roid.angle);
+	ctx.lineTo(pt.x,pt.y);
+
+	var pt = roid.location.clone();
+	pt.x += -1*roid.scale;
+	pt.y += -17*roid.scale;
+	pt.rotate(roid.location, roid.angle);
+	ctx.lineTo(pt.x,pt.y);
 
     ctx.lineTo(roid.location.x,roid.location.y);
 
@@ -299,20 +425,34 @@ function drawLaser(lzr, scale) {
 	ctx.moveTo(lzr.location.x, lzr.location.y);
 
 	var endBeam = lzr.location.clone();
-	endBeam.x += 0;
-	endBeam.y += 10;
+	endBeam.x += 1;
+	endBeam.y += 1;
 	endBeam.rotate(lzr.location, lzr.angle);
+	ctx.lineTo(endBeam.x,endBeam.y);
 
+	var endBeam = lzr.location.clone();
+	endBeam.x += 0;
+	endBeam.y += 2;
+	endBeam.rotate(lzr.location, lzr.angle);
+	ctx.lineTo(endBeam.x,endBeam.y);
+
+	var endBeam = lzr.location.clone();
+	endBeam.x += -2;
+	endBeam.y += 2;
+	endBeam.rotate(lzr.location, lzr.angle);
 	ctx.lineTo(endBeam.x,endBeam.y);
 
     ctx.lineTo(lzr.location.x,lzr.location.y);
 
-	ctx.strokeStyle = 'blue';
-	ctx.shadowColor = 'blue';
-	ctx.shadowBlur = 10;
+	ctx.strokeStyle = '#B6212D';
+	ctx.shadowColor = '#B6212D';
+	ctx.shadowBlur = 20;
 	ctx.stroke();
 	ctx.closePath();
 };
 
 document.onkeydown = checkKey;
 APP.core.frame()
+
+
+
